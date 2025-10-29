@@ -18,12 +18,14 @@ class CustomerSegmentService
      */
     public function getVIPCustomers(float $minSpent = 5000): Collection
     {
-        return User::select('users.*')
+        $userIds = DB::table('users')
             ->join('orders', 'users.id', '=', 'orders.user_id')
             ->where('orders.payment_status', 'paid')
             ->groupBy('users.id')
             ->havingRaw('SUM(orders.total) >= ?', [$minSpent])
-            ->get();
+            ->pluck('users.id');
+
+        return User::whereIn('id', $userIds)->get();
     }
 
     /**
@@ -64,12 +66,14 @@ class CustomerSegmentService
      */
     public function getRepeatCustomers(int $minOrders = 2): Collection
     {
-        return User::select('users.*')
+        $userIds = DB::table('users')
             ->join('orders', 'users.id', '=', 'orders.user_id')
             ->where('orders.payment_status', 'paid')
             ->groupBy('users.id')
             ->havingRaw('COUNT(orders.id) >= ?', [$minOrders])
-            ->get();
+            ->pluck('users.id');
+
+        return User::whereIn('id', $userIds)->get();
     }
 
     /**
@@ -122,12 +126,14 @@ class CustomerSegmentService
      */
     public function getCustomersBySpendingRange(float $min, float $max): Collection
     {
-        return User::select('users.*')
+        $userIds = DB::table('users')
             ->join('orders', 'users.id', '=', 'orders.user_id')
             ->where('orders.payment_status', 'paid')
             ->groupBy('users.id')
             ->havingRaw('SUM(orders.total) BETWEEN ? AND ?', [$min, $max])
-            ->get();
+            ->pluck('users.id');
+
+        return User::whereIn('id', $userIds)->get();
     }
 
     /**

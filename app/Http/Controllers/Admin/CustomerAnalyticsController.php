@@ -45,13 +45,26 @@ class CustomerAnalyticsController extends Controller
         ];
 
         // أفضل العملاء (Top 10)
-        $topCustomers = User::select('users.*', DB::raw('COUNT(orders.id) as orders_count'), DB::raw('SUM(orders.total) as total_spent'))
+        $topCustomersData = DB::table('users')
             ->join('orders', 'users.id', '=', 'orders.user_id')
             ->where('orders.payment_status', 'paid')
+            ->select('users.id', DB::raw('COUNT(orders.id) as orders_count'), DB::raw('SUM(orders.total) as total_spent'))
             ->groupBy('users.id')
             ->orderByDesc('total_spent')
             ->limit(10)
             ->get();
+
+        $userIds = $topCustomersData->pluck('id');
+        $topCustomers = User::whereIn('id', $userIds)
+            ->get()
+            ->map(function ($user) use ($topCustomersData) {
+                $stats = $topCustomersData->firstWhere('id', $user->id);
+                $user->orders_count = $stats->orders_count ?? 0;
+                $user->total_spent = $stats->total_spent ?? 0;
+                return $user;
+            })
+            ->sortByDesc('total_spent')
+            ->values();
 
         // إحصائيات الحملات
         $campaignStats = [
