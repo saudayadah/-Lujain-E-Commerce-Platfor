@@ -10,7 +10,7 @@ use App\Http\Controllers\Api\PaymentWebhookController;
 
 // Public API
 Route::prefix('v1')->group(function () {
-    // Auth routes
+    // Auth routes - 🔒 Protected with strict rate limiting
     Route::post('/register', function (Request $request) {
         $request->validate([
             'name' => 'required|string|max:255',
@@ -31,7 +31,7 @@ Route::prefix('v1')->group(function () {
             'token' => $token,
             'message' => 'User registered successfully',
         ]);
-    });
+    })->middleware('throttle:auth'); // 5 محاولات/دقيقة
 
     Route::post('/login', function (Request $request) {
         $request->validate([
@@ -69,7 +69,7 @@ Route::prefix('v1')->group(function () {
             'token' => $token,
             'message' => 'Login successful',
         ]);
-    });
+    })->middleware('throttle:auth'); // 5 محاولات/دقيقة
     
     // Products
     Route::get('/products', [ProductApiController::class, 'index']);

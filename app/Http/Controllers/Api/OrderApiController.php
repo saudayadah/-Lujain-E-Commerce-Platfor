@@ -44,27 +44,45 @@ class OrderApiController extends Controller
             return response()->json(['error' => 'Cart is empty'], 400);
         }
 
-        $order = $this->orderService->createOrder([
-            'subtotal' => $cart['subtotal'],
-            'tax' => $cart['tax'],
-            'total' => $cart['total'],
-            'payment_method' => $request->payment_method,
-            'shipping_address' => $request->shipping_address,
-            'notes' => $request->notes,
-        ], $cart['items']);
+        try {
+            // 🔒 استخدام transaction لضمان consistency
+            $order = \DB::transaction(function () use ($request, $cart) {
+                $order = $this->orderService->createOrder([
+                    'subtotal' => $cart['subtotal'],
+                    'tax' => $cart['tax'],
+                    'total' => $cart['total'],
+                    'payment_method' => $request->payment_method,
+                    'shipping_address' => $request->shipping_address,
+                    'notes' => $request->notes,
+                ], $cart['items']);
 
-        $this->cartService->clear();
+                // تنظيف السلة بعد نجاح الطلب
+                $this->cartService->clear();
 
-        if ($request->payment_method === 'online') {
-            $paymentResult = $this->paymentGateway->createPayment($order);
+                return $order;
+            });
+
+            // Payment initiation is a READ operation, safe outside transaction
+            if ($request->payment_method === 'online') {
+                $paymentResult = $this->paymentGateway->createPayment($order);
+                
+                return response()->json([
+                    'order' => $order,
+                    'payment' => $paymentResult,
+                ]);
+            }
+
+            return response()->json(['order' => $order]);
+        } catch (\Exception $e) {
+            \Log::error('API Checkout failed', [
+                'user_id' => auth()->id(),
+                'error' => $e->getMessage(),
+            ]);
             
             return response()->json([
-                'order' => $order,
-                'payment' => $paymentResult,
-            ]);
+                'error' => 'حدث خطأ أثناء معالجة طلبك. يرجى المحاولة مرة أخرى',
+            ], 500);
         }
-
-        return response()->json(['order' => $order]);
     }
 }
 

@@ -38,37 +38,58 @@ class Category extends Model
         });
     }
 
+    /**
+     * العلاقة مع التصنيف الأب
+     */
     public function parent()
     {
         return $this->belongsTo(Category::class, 'parent_id');
     }
 
+    /**
+     * العلاقة مع التصنيفات الفرعية
+     */
     public function children()
     {
         return $this->hasMany(Category::class, 'parent_id')->orderBy('sort_order');
     }
 
+    /**
+     * العلاقة مع المنتجات
+     */
     public function products()
     {
         return $this->hasMany(Product::class);
     }
 
-    public function getName()
+    /**
+     * الحصول على اسم التصنيف حسب اللغة
+     */
+    public function getName(): string
     {
         return app()->getLocale() === 'ar' ? $this->name_ar : $this->name_en;
     }
 
-    public function getDescription()
+    /**
+     * الحصول على وصف التصنيف حسب اللغة
+     */
+    public function getDescription(): ?string
     {
         return app()->getLocale() === 'ar' ? $this->description_ar : $this->description_en;
     }
 
-    public function getActiveProductsCount()
+    /**
+     * الحصول على عدد المنتجات النشطة
+     */
+    public function getActiveProductsCount(): int
     {
         return $this->products()->where('status', 'active')->count();
     }
 
-    public function getAllProductsCount()
+    /**
+     * الحصول على عدد جميع المنتجات (بما في ذلك التصنيفات الفرعية)
+     */
+    public function getAllProductsCount(): int
     {
         $count = $this->products()->count();
         foreach ($this->children as $child) {
@@ -77,7 +98,10 @@ class Category extends Model
         return $count;
     }
 
-    public function getAllChildrenIds()
+    /**
+     * الحصول على IDs لجميع التصنيفات الفرعية
+     */
+    public function getAllChildrenIds(): array
     {
         $ids = [];
         foreach ($this->children as $child) {
@@ -111,6 +135,9 @@ class Category extends Model
         });
     }
 
+    /**
+     * الحصول على جميع المنتجات النشطة (بما في ذلك التصنيفات الفرعية)
+     */
     public function getAllProducts()
     {
         $productIds = [$this->id];
@@ -122,7 +149,10 @@ class Category extends Model
             ->get();
     }
 
-    public function getBreadcrumbs()
+    /**
+     * الحصول على مسار التصنيفات (Breadcrumbs)
+     */
+    public function getBreadcrumbs(): array
     {
         $breadcrumbs = [];
         $category = $this;

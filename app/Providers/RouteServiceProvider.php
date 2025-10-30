@@ -26,6 +26,17 @@ class RouteServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
 
+        // 🔒 Auth endpoints: محدود جدًا لمنع brute-force attacks
+        RateLimiter::for('auth', function (Request $request) {
+            return Limit::perMinute(5)->by($request->ip())
+                ->response(function () {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'تم تجاوز عدد المحاولات المسموح بها. يرجى المحاولة بعد دقيقة',
+                    ], 429);
+                });
+        });
+
         RateLimiter::for('webhooks', function (Request $request) {
             return Limit::perMinute(100)->by($request->ip());
         });

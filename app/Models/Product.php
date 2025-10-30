@@ -75,46 +75,73 @@ class Product extends Model
         });
     }
 
+    /**
+     * العلاقة مع التصنيف
+     */
     public function category()
     {
         return $this->belongsTo(Category::class);
     }
 
+    /**
+     * العلاقة مع تنويعات المنتج
+     */
     public function variants()
     {
         return $this->hasMany(ProductVariant::class);
     }
 
+    /**
+     * العلاقة مع عناصر الطلبات
+     */
     public function orderItems()
     {
         return $this->hasMany(OrderItem::class);
     }
 
+    /**
+     * العلاقة مع حركات المخزون
+     */
     public function inventoryMovements()
     {
         return $this->hasMany(InventoryMovement::class);
     }
 
-    public function getName()
+    /**
+     * الحصول على اسم المنتج حسب اللغة
+     */
+    public function getName(): string
     {
         return app()->getLocale() === 'ar' ? $this->name_ar : $this->name_en;
     }
 
-    public function getDescription()
+    /**
+     * الحصول على وصف المنتج حسب اللغة
+     */
+    public function getDescription(): ?string
     {
         return app()->getLocale() === 'ar' ? $this->description_ar : $this->description_en;
     }
 
-    public function getCurrentPrice()
+    /**
+     * الحصول على السعر الحالي (مع الخصم إن وُجد)
+     */
+    public function getCurrentPrice(): float
     {
         return $this->sale_price ?? $this->price;
     }
 
+    /**
+     * التحقق من وجود خصم على المنتج
+     */
     public function hasDiscount(): bool
     {
         return $this->sale_price !== null && $this->sale_price < $this->price;
     }
 
+    /**
+     * الحصول على نسبة الخصم
+     */
     public function getDiscountPercentage(): int
     {
         if (!$this->hasDiscount()) {
@@ -123,19 +150,34 @@ class Product extends Model
         return (int) round((($this->price - $this->sale_price) / $this->price) * 100);
     }
 
+    /**
+     * التحقق من توفر المنتج في المخزون
+     */
     public function isInStock(): bool
     {
         return $this->stock > 0 && $this->status === 'active';
     }
 
+    /**
+     * التحقق من أن المخزون منخفض
+     */
     public function isLowStock(): bool
     {
         return $this->stock <= $this->low_stock_alert && $this->stock > 0;
     }
 
-    public function getMainImage()
+    /**
+     * الحصول على الصورة الرئيسية
+     */
+    public function getMainImage(): ?string
     {
-        return $this->images[0] ?? null;
+        if (!empty($this->image)) {
+            return $this->image;
+        }
+        if (is_array($this->images) && !empty($this->images)) {
+            return $this->images[0];
+        }
+        return null;
     }
 
     public function scopeActive($query)
@@ -250,10 +292,20 @@ class Product extends Model
     public function getCurrentOfferPrice(): float
     {
         $discount = $this->getCurrentOfferDiscount();
-        return $this->price * (1 - $discount / 100);
+        
+        // 🛡️ التأكد من أن الخصم لا يتجاوز 100% لمنع الأسعار السالبة
+        $discount = min(100, max(0, $discount));
+        
+        $finalPrice = $this->price * (1 - $discount / 100);
+        
+        // 🛡️ التأكد من أن السعر النهائي ليس سالبًا أو صفر
+        return max(0, $finalPrice);
     }
 
-    public function getOfferBadge(): array
+    /**
+     * الحصول على شارة العرض (Badge)
+     */
+    public function getOfferBadge(): ?array
     {
         if ($this->isFlashSaleActive()) {
             return [
@@ -317,7 +369,10 @@ class Product extends Model
         return null;
     }
 
-    public function getAllImages()
+    /**
+     * الحصول على جميع صور المنتج
+     */
+    public function getAllImages(): array
     {
         $images = [];
         if ($this->image) {
@@ -329,7 +384,10 @@ class Product extends Model
         return array_unique($images);
     }
 
-    public function getRelatedProducts($limit = 4)
+    /**
+     * الحصول على المنتجات المشابهة
+     */
+    public function getRelatedProducts(int $limit = 4)
     {
         return self::where('category_id', $this->category_id)
             ->where('id', '!=', $this->id)

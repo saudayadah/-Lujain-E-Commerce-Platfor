@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Str;
+
 if (!function_exists('getDefaultProductImage')) {
     /**
      * Get default product image based on product name or category
@@ -102,6 +104,51 @@ if (!function_exists('getDefaultProductImage')) {
 
         // صورة افتراضية عامة للمنتجات الزراعية
         return 'https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=800&h=800&fit=crop&q=80';
+    }
+}
+
+if (!function_exists('image_url')) {
+    /**
+     * Build a full URL for an image path or return it directly if it's already an absolute URL.
+     *
+     * @param string|null $path Relative storage path (e.g., products/slug/img.webp) or absolute URL
+     * @return string|null
+     */
+    function image_url(?string $path): ?string
+    {
+        if (!$path) {
+            return null;
+        }
+
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return $path;
+        }
+
+        return asset('storage/' . ltrim($path, '/'));
+    }
+}
+
+if (!function_exists('generate_unique_slug')) {
+    /**
+     * Generate a unique slug for the given model class.
+     *
+     * @param class-string<\Illuminate\Database\Eloquent\Model> $modelClass
+     * @param string $baseSlug
+     * @param int|null $ignoreId
+     */
+    function generate_unique_slug(string $modelClass, string $baseSlug, ?int $ignoreId = null): string
+    {
+        $slug = Str::slug($baseSlug);
+        $original = $slug;
+        $counter = 1;
+
+        while ($modelClass::where('slug', $slug)
+            ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))
+            ->exists()) {
+            $slug = $original . '-' . $counter++;
+        }
+
+        return $slug ?: Str::random(8);
     }
 }
 

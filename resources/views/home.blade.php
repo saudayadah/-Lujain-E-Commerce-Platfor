@@ -417,8 +417,15 @@ if (!function_exists('getCategoryDesign')) {
                                 'أرز' => 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=500&h=500&fit=crop&q=80',
                             ];
                             
-                            // البحث عن أقرب تطابق للفئة
-                            $categoryImage = $category->image;
+                            // منطق محسّن لعرض صورة التصنيف (أولوية للصورة المرفوعة)
+                            $categoryImage = null;
+                            
+                            // 1. أولوية قصوى: الصورة المرفوعة من المسؤول
+                            if ($category->image && !empty(trim($category->image))) {
+                                $categoryImage = image_url($category->image);
+                            }
+                            
+                            // 2. إذا لم توجد صورة مرفوعة، استخدم الصور الافتراضية الذكية
                             if (!$categoryImage) {
                                 foreach ($defaultImages as $keyword => $image) {
                                     if (str_contains($category->name_ar, $keyword)) {
@@ -426,12 +433,11 @@ if (!function_exists('getCategoryDesign')) {
                                         break;
                                     }
                                 }
-                                // صورة افتراضية عامة إذا لم يتم العثور على تطابق
-                                if (!$categoryImage) {
-                                    $categoryImage = 'https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=400&h=400&fit=crop';
-                                }
-                            } else {
-                                $categoryImage = asset('storage/' . $categoryImage);
+                            }
+                            
+                            // 3. صورة افتراضية عامة كملاذ أخير
+                            if (!$categoryImage) {
+                                $categoryImage = 'https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=400&h=400&fit=crop';
                             }
                         @endphp
                         

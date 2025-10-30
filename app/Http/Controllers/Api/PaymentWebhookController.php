@@ -15,9 +15,22 @@ class PaymentWebhookController extends Controller
 
     public function handle(Request $request)
     {
-        Log::info('Payment Webhook Received', ['payload' => $request->all()]);
+        $payload = $request->all();
+        Log::info('Payment Webhook Received', ['payload' => $payload]);
 
-        $result = $this->paymentGateway->handleWebhook($request->all());
+        $signature = $request->header('Signature')
+            ?? $request->header('X-Webhook-Signature')
+            ?? $request->header('X-Signature');
+
+        if (!$signature || !$this->paymentGateway->verifyWebhook($payload, $signature)) {
+            Log::warning('Payment webhook rejected due to invalid signature', [
+                'signature_present' => (bool) $signature,
+            ]);
+
+            return response()->json(['error' => 'Invalid signature'], 403);
+        }
+
+        $result = $this->paymentGateway->handleWebhook($payload);
 
         if ($result['success']) {
             return response()->json(['message' => 'Webhook processed successfully']);

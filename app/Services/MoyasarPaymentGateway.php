@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Order;
 use App\Models\Payment;
+use Illuminate\Support\Facades\Cache;
 use Moyasar\Moyasar;
 use Moyasar\Providers\PaymentService;
 
@@ -134,6 +135,11 @@ class MoyasarPaymentGateway implements PaymentGatewayInterface
 
     public function verifyWebhook(array $payload, string $signature): bool
     {
+        if (empty($this->webhookSecret)) {
+            \Log::warning('Moyasar webhook secret is not configured');
+            return false;
+        }
+
         $computedSignature = hash_hmac('sha256', json_encode($payload), $this->webhookSecret);
         return hash_equals($computedSignature, $signature);
     }
@@ -143,6 +149,18 @@ class MoyasarPaymentGateway implements PaymentGatewayInterface
         try {
             $eventType = $payload['type'] ?? null;
             $paymentData = $payload['data'] ?? [];
+            $eventId = $payload['id'] ?? ($paymentData['id'] ?? null);
+
+            if ($eventId) {
+                $cacheKey = 'webhook:moyasar:' . $eventId;
+                if (Cache::has($cacheKey)) {
+                    return [
+                        'success' => true,
+                        'message' => 'Webhook already processed',
+                    ];
+                }
+                Cache::put($cacheKey, true, now()->addHours(24));
+            }
 
             if ($eventType === 'payment_paid') {
                 $orderId = $paymentData['metadata']['order_id'] ?? null;
@@ -155,6 +173,17 @@ class MoyasarPaymentGateway implements PaymentGatewayInterface
                 
                 if (!$order) {
                     throw new \Exception('Order not found');
+                }
+
+                // Idempotency: if payment already marked completed, return OK
+                $existing = Payment::where('transaction_id', $paymentData['id'] ?? '')
+                    ->where('status', 'completed')
+                    ->first();
+                if ($existing) {
+                    return [
+                        'success' => true,
+                        'message' => 'Webhook already processed',
+                    ];
                 }
 
                 $order->update([

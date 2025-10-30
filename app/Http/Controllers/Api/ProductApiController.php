@@ -31,8 +31,8 @@ class ProductApiController extends Controller
             }
         }
         
-        // Apply pagination
-        $perPage = $request->get('per_page', 100);
+        // Apply pagination with max limit to prevent performance issues
+        $perPage = min((int) $request->get('per_page', 20), 100);
         $products = $query->paginate($perPage);
         
         return response()->json([

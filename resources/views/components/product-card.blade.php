@@ -3,15 +3,10 @@
 <div class="product-card-modern" data-product-id="{{ $product->id }}">
     <div class="product-image-wrapper">
         @php
-            $allImages = $product->getAllImages();
-            $mainImage = !empty($allImages) ? $allImages[0] : null;
+            $mainImage = $product->getMainImage();
         @endphp
         @if($mainImage)
-            @if(str_starts_with($mainImage, 'http'))
-                <img src="{{ $mainImage }}" alt="{{ $product->name_ar }}" class="product-image-main" loading="lazy" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'product-image-placeholder\'><i class=\'fas fa-seedling\'></i></div>';">
-            @else
-                <img src="{{ asset('storage/' . $mainImage) }}" alt="{{ $product->name_ar }}" class="product-image-main" loading="lazy" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'product-image-placeholder\'><i class=\'fas fa-seedling\'></i></div>';">
-            @endif
+            <img src="{{ image_url($mainImage) }}" alt="{{ $product->name_ar }}" class="product-image-main" loading="lazy" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'product-image-placeholder\'><i class=\'fas fa-seedling\'></i></div>';">
         @else
             <div class="product-image-placeholder">
                 <i class="fas fa-seedling"></i>

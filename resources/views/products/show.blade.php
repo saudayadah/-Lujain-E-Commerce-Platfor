@@ -185,18 +185,13 @@
                 $allImages = $product->getAllImages();
             @endphp
 
-            @if(count($allImages) > 0)
+            @if(count($allImages) > 0 && $allImages[0])
             <div style="position: relative;">
                 <!-- Main Image -->
                 <div id="mainImageContainer" style="border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 1px solid var(--gray-200); margin-bottom: 1rem;">
-                    @php
-                        $firstImage = $allImages[0];
-                    @endphp
-                    @if(str_starts_with($firstImage, 'http'))
-                        <img id="mainImage" src="{{ $firstImage }}" alt="{{ $product->name_ar }}" style="width: 100%; height: auto; display: block;" loading="lazy">
-                    @else
-                        <img id="mainImage" src="{{ asset('storage/' . $firstImage) }}" alt="{{ $product->name_ar }}" style="width: 100%; height: auto; display: block;" loading="lazy">
-                    @endif
+                    @php $firstImage = $allImages[0]; @endphp
+                    <img id="mainImage" src="{{ image_url($firstImage) }}" alt="{{ $product->name_ar }}" style="width: 100%; height: auto; display: block;" loading="lazy"
+                         onerror="this.onerror=null;this.src='{{ getDefaultProductImage($product->name_ar, $product->category->name_ar ?? '') }}'">
                 </div>
 
                 <!-- Thumbnail Images -->
@@ -204,14 +199,13 @@
                 <div style="display: flex; gap: 0.75rem; overflow-x: auto; padding: 0.5rem 0;">
                     @foreach($allImages as $index => $image)
                     <div class="thumbnail-container" style="flex-shrink: 0;">
-                        @php
-                            $imgSrc = str_starts_with($image, 'http') ? $image : asset('storage/' . $image);
-                        @endphp
+                        @php $imgSrc = image_url($image); @endphp
                         <img src="{{ $imgSrc }}"
                              alt="{{ $product->name_ar }} - صورة {{ $index + 1 }}"
                              class="thumbnail {{ $index === 0 ? 'active' : '' }}"
                              style="width: 80px; height: 80px; object-fit: cover; border-radius: 12px; cursor: pointer; border: 3px solid {{ $index === 0 ? 'var(--primary)' : 'var(--gray-200)' }}; transition: all 0.3s;"
-                             onclick="changeMainImage('{{ $imgSrc }}', this)">
+                             onclick="changeMainImage('{{ $imgSrc }}', this)"
+                             onerror="this.onerror=null;this.src='{{ getDefaultProductImage($product->name_ar, $product->category->name_ar ?? '') }}'">
                     </div>
                     @endforeach
                 </div>
@@ -370,7 +364,7 @@
             <div class="product-card">
                 <div style="position: relative;">
                     @if($related->image)
-                    <img src="{{ asset('storage/' . $related->image) }}" alt="{{ $related->name_ar }}" class="product-image">
+                    <img src="{{ asset('storage/' . $related->image) }}" alt="{{ $related->name_ar }}" class="product-image" onerror="this.onerror=null;this.src='{{ getDefaultProductImage($related->name_ar, $related->category->name_ar ?? '') }}'">
                     @else
                     <div class="product-image" style="display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--gray-100), var(--gray-200));">
                         <i class="fas fa-image" style="font-size: 3rem; color: var(--gray-400);"></i>

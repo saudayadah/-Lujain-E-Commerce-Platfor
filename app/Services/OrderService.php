@@ -31,12 +31,22 @@ class OrderService
             ]);
 
             foreach ($cartItems as $item) {
-                $product = $item['product'];
-                
+                // Defensive resolution of product and variant
+                $product = $item['product'] ?? null;
+                if (!$product instanceof Product) {
+                    $product = isset($item['product_id']) ? Product::find($item['product_id']) : null;
+                }
+                if (!$product) {
+                    // Skip invalid cart line
+                    continue;
+                }
+
+                $variantId = (isset($item['variant']) && $item['variant']) ? ($item['variant']->id ?? null) : null;
+
                 OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $product->id,
-                    'variant_id' => $item['variant']->id ?? null,
+                    'variant_id' => $variantId,
                     'product_name' => $product->getName(),
                     'product_sku' => $product->sku,
                     'price' => $item['price'],
@@ -45,6 +55,7 @@ class OrderService
                     'snapshot' => [
                         'name_ar' => $product->name_ar,
                         'name_en' => $product->name_en,
+                        'main_image' => $product->image,
                         'images' => $product->images,
                     ],
                 ]);

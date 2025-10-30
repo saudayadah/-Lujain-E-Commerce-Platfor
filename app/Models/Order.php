@@ -54,21 +54,33 @@ class Order extends Model
         });
     }
 
+    /**
+     * العلاقة مع المستخدم صاحب الطلب
+     */
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * العلاقة مع عناصر الطلب
+     */
     public function items()
     {
         return $this->hasMany(OrderItem::class);
     }
 
+    /**
+     * العلاقة مع المدفوعات
+     */
     public function payments()
     {
         return $this->hasMany(Payment::class);
     }
 
+    /**
+     * العلاقة مع الفاتورة
+     */
     public function invoice()
     {
         return $this->hasOne(Invoice::class);

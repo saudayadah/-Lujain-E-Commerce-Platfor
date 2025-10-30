@@ -91,6 +91,19 @@ class CouponService
 
     /**
      * تطبيق الكوبون على الطلب (بعد إنشائه)
+     *
+     * ⚠️ ملاحظة: يجب استدعاء هذه الدالة داخل DB::transaction()
+     * لضمان أن تسجيل الاستخدام وتحديث الطلب يحدثان atomically
+     * 
+     * مثال:
+     * DB::transaction(function() {
+     *     $order = $this->orderService->createOrder(...);
+     *     $this->couponService->applyToOrder($order, $user); // ✅ داخل transaction
+     * });
+     * 
+     * @param \App\Models\Order $order
+     * @param User $user
+     * @return void
      */
     public function applyToOrder(\App\Models\Order $order, User $user): void
     {

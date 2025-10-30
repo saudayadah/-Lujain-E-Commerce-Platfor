@@ -80,8 +80,15 @@
                     'بندق' => 'https://images.unsplash.com/photo-1618912352794-9e5ab8f1e812?w=500&h=500&fit=crop&q=80',
                 ];
                 
-                // البحث عن أقرب تطابق للفئة
-                $categoryImage = $category->image;
+                // منطق محسّن لعرض صورة التصنيف
+                $categoryImage = null;
+                
+                // 1. أولوية قصوى: الصورة المرفوعة من المسؤول
+                if ($category->image && !empty(trim($category->image))) {
+                    $categoryImage = image_url($category->image);
+                }
+                
+                // 2. إذا لم توجد صورة مرفوعة، استخدم الصور الافتراضية الذكية
                 if (!$categoryImage) {
                     foreach ($defaultImages as $keyword => $image) {
                         if (str_contains($category->name_ar, $keyword)) {
@@ -89,12 +96,11 @@
                             break;
                         }
                     }
-                    // صورة افتراضية عامة إذا لم يتم العثور على تطابق
-                    if (!$categoryImage) {
-                        $categoryImage = 'https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=400&h=400&fit=crop';
-                    }
-                } else {
-                    $categoryImage = asset('storage/' . $categoryImage);
+                }
+                
+                // 3. صورة افتراضية عامة كملاذ أخير
+                if (!$categoryImage) {
+                    $categoryImage = 'https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=400&h=400&fit=crop';
                 }
             @endphp
 
@@ -104,7 +110,7 @@
                     <div class="category-icon-wrapper" style="overflow: hidden; border-radius: 20px;">
                         <img src="{{ $categoryImage }}" alt="{{ $category->name_ar }}" 
                              style="width: 100%; height: 100%; object-fit: cover;" 
-                             onerror="this.src='https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=400&h=400&fit=crop'">
+                             onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=400&h=400&fit=crop'">
                     </div>
                     <div class="category-info">
                         <h2 class="category-title">{{ $category->name_ar }}</h2>
@@ -130,7 +136,7 @@
                                 <div class="subcategory-icon" style="overflow: hidden; border-radius: 12px;">
                                     <img src="{{ $categoryImage }}" alt="{{ $category->name_ar }}" 
                                          style="width: 100%; height: 100%; object-fit: cover;" 
-                                         onerror="this.src='https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=400&h=400&fit=crop'">
+                                         onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=400&h=400&fit=crop'">
                                 </div>
                                 <div class="subcategory-info">
                                     <h3>جميع {{ $category->name_ar }}</h3>
@@ -144,8 +150,15 @@
                             @php
                                 $subProductCount = $subcategory->products()->count();
                                 
-                                // صورة الفئة الفرعية
-                                $subCategoryImage = $subcategory->image;
+                                // منطق محسّن لصورة الفئة الفرعية
+                                $subCategoryImage = null;
+                                
+                                // 1. الصورة المرفوعة للفئة الفرعية
+                                if ($subcategory->image && !empty(trim($subcategory->image))) {
+                                    $subCategoryImage = image_url($subcategory->image);
+                                }
+                                
+                                // 2. الصور الافتراضية بناءً على الاسم
                                 if (!$subCategoryImage) {
                                     foreach ($defaultImages as $keyword => $image) {
                                         if (str_contains($subcategory->name_ar, $keyword)) {
@@ -153,12 +166,11 @@
                                             break;
                                         }
                                     }
-                                    // استخدم صورة الفئة الرئيسية إذا لم يتم العثور على تطابق
-                                    if (!$subCategoryImage) {
-                                        $subCategoryImage = $categoryImage;
-                                    }
-                                } else {
-                                    $subCategoryImage = asset('storage/' . $subCategoryImage);
+                                }
+                                
+                                // 3. صورة الفئة الرئيسية كملاذ
+                                if (!$subCategoryImage) {
+                                    $subCategoryImage = $categoryImage;
                                 }
                             @endphp
                             <div class="subcategory-item">
@@ -166,7 +178,7 @@
                                     <div class="subcategory-icon" style="overflow: hidden; border-radius: 12px;">
                                         <img src="{{ $subCategoryImage }}" alt="{{ $subcategory->name_ar }}" 
                                              style="width: 100%; height: 100%; object-fit: cover;" 
-                                             onerror="this.src='https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=400&h=400&fit=crop'">
+                                             onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=400&h=400&fit=crop'">
                                     </div>
                                     <div class="subcategory-info">
                                         <h3>{{ $subcategory->name_ar }}</h3>

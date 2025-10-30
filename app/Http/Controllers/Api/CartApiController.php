@@ -40,16 +40,40 @@ class CartApiController extends Controller
             'quantity' => 'required|integer|min:1',
         ]);
 
-        $result = $this->cartService->updateQuantity($id, $request->quantity);
+        try {
+            $result = $this->cartService->updateQuantity($id, $request->quantity);
+            
+            if (!$result['success']) {
+                return response()->json($result, 400);
+            }
 
-        return response()->json($result);
+            return response()->json($result);
+        } catch (\Exception $e) {
+            \Log::error('CartApiController@update: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ أثناء تحديث السلة',
+            ], 500);
+        }
     }
 
     public function remove(string $id)
     {
-        $result = $this->cartService->removeItem($id);
+        try {
+            $result = $this->cartService->removeItem($id);
+            
+            if (!$result['success']) {
+                return response()->json($result, 400);
+            }
 
-        return response()->json($result);
+            return response()->json($result);
+        } catch (\Exception $e) {
+            \Log::error('CartApiController@remove: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ أثناء حذف المنتج من السلة',
+            ], 500);
+        }
     }
 }
 

@@ -83,9 +83,18 @@ class CartController extends Controller
             'quantity' => 'required|integer|min:1',
         ]);
 
-        $this->cartService->updateQuantity($id, $request->quantity);
+        try {
+            $result = $this->cartService->updateQuantity($id, $request->quantity);
+            
+            if (!$result['success']) {
+                return redirect()->back()->with('error', $result['message']);
+            }
 
-        return redirect()->back()->with('success', __('messages.cart.updated'));
+            return redirect()->back()->with('success', __('messages.cart.updated'));
+        } catch (\Exception $e) {
+            Log::error('CartController@update: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'حدث خطأ أثناء تحديث السلة. يرجى المحاولة مرة أخرى');
+        }
     }
 
     public function remove(string $id)

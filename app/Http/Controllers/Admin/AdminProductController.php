@@ -8,9 +8,19 @@ use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Storage;
+use Intervention\Image\Facades\Image;
+use App\Services\ImageUploadService;
 
 class AdminProductController extends Controller
 {
+    protected $imageUploadService;
+
+    public function __construct(ImageUploadService $imageUploadService)
+    {
+        $this->imageUploadService = $imageUploadService;
+    }
+
     public function index(Request $request)
     {
         $query = Product::with('category');
@@ -92,7 +102,50 @@ class AdminProductController extends Controller
         ]);
 
         $validated['name_en'] = $validated['name_en'] ?? $validated['name_ar'];
-        $validated['slug'] = Str::slug($validated['name_en']);
+
+        $requestedSlug = $request->input('slug', $validated['name_en']);
+        $slug = generate_unique_slug(Product::class, $requestedSlug);
+        $validated['slug'] = $slug;
+
+        // معالجة وضغط صورة واحدة رئيسية
+        if ($request->hasFile('image')) {
+            try {
+                $imagePath = $this->imageUploadService->uploadProductImage(
+                    $request->file('image'),
+                    $slug,
+                    true
+                );
+                
+                if ($imagePath) {
+                    $validated['image'] = $imagePath;
+                } else {
+                    return back()->withErrors(['image' => 'فشل رفع الصورة الرئيسية. يرجى المحاولة مرة أخرى.'])->withInput();
+                }
+            } catch (\Exception $e) {
+                \Log::error('Product image upload error: ' . $e->getMessage());
+                return back()->withErrors(['image' => 'حدث خطأ أثناء رفع الصورة: ' . $e->getMessage()])->withInput();
+            }
+        }
+
+        // معالجة الصور المتعددة
+        if ($request->hasFile('images')) {
+            try {
+                $uploadedImages = $this->imageUploadService->uploadMultiple(
+                    $request->file('images'),
+                    'products/' . $slug . '/'
+                );
+                
+                if (!empty($uploadedImages)) {
+                    $validated['images'] = $uploadedImages;
+                } else {
+                    \Log::warning('No product images were uploaded successfully');
+                }
+            } catch (\Exception $e) {
+                \Log::error('Product images upload error: ' . $e->getMessage());
+                // نستمر في العملية حتى لو فشلت الصور المتعددة
+            }
+        }
+
         $validated['unit'] = $validated['unit'] ?? 'قطعة';
         $validated['low_stock_alert'] = $validated['low_stock_alert'] ?? 5;
         $validated['is_featured'] = $request->has('is_featured');
@@ -105,19 +158,6 @@ class AdminProductController extends Controller
         }
         $validated['attributes'] = $attributes;
         unset($validated['weight']);
-
-        if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('products', 'public');
-        }
-
-        // حفظ الصور المتعددة
-        if ($request->hasFile('images')) {
-            $images = [];
-            foreach ($request->file('images') as $file) {
-                $images[] = $file->store('products', 'public');
-            }
-            $validated['images'] = $images;
-        }
 
         Product::create($validated);
 
@@ -163,7 +203,64 @@ class AdminProductController extends Controller
         ]);
 
         $validated['name_en'] = $validated['name_en'] ?? $validated['name_ar'];
-        $validated['slug'] = Str::slug($validated['name_en']);
+        
+        // 🔒 الحفاظ على slug القديم لعدم كسر الروابط (SEO + تجربة المستخدم)
+        // فقط نُحدث slug إذا تغيّر الاسم الإنجليزي بشكل كبير
+        $newSlug = $request->input('slug', $validated['name_en']);
+        if ($request->boolean('force_slug_update') && $product->slug !== Str::slug($newSlug)) {
+            $slug = generate_unique_slug(Product::class, $newSlug, $product->id);
+            $validated['slug'] = $slug;
+        } else {
+            // الاحتفاظ بـ slug القديم
+            $slug = $product->slug;
+        }
+
+        // معالجة الصورة في التحديث
+        if ($request->hasFile('image')) {
+            try {
+                // حذف الصورة القديمة إذا كانت موجودة
+                if ($product->image) {
+                    $this->imageUploadService->delete($product->image);
+                }
+                
+                $imagePath = $this->imageUploadService->uploadProductImage(
+                    $request->file('image'),
+                    $slug,
+                    true
+                );
+                
+                if ($imagePath) {
+                    $validated['image'] = $imagePath;
+                } else {
+                    return back()->withErrors(['image' => 'فشل رفع الصورة الرئيسية. يرجى المحاولة مرة أخرى.'])->withInput();
+                }
+            } catch (\Exception $e) {
+                \Log::error('Product image update error: ' . $e->getMessage());
+                return back()->withErrors(['image' => 'حدث خطأ أثناء تحديث الصورة: ' . $e->getMessage()])->withInput();
+            }
+        }
+
+        // معالجة الصور المتعددة في التحديث
+        if ($request->hasFile('images')) {
+            try {
+                $uploadedImages = $this->imageUploadService->uploadMultiple(
+                    $request->file('images'),
+                    'products/' . $slug . '/'
+                );
+                
+                if (!empty($uploadedImages)) {
+                    // دمج الصور الجديدة مع الصور القديمة
+                    $existingImages = $product->images ?? [];
+                    $validated['images'] = array_merge($existingImages, $uploadedImages);
+                } else {
+                    \Log::warning('No product images were uploaded successfully during update');
+                }
+            } catch (\Exception $e) {
+                \Log::error('Product images update error: ' . $e->getMessage());
+                // نستمر في العملية حتى لو فشلت الصور المتعددة
+            }
+        }
+
         $validated['unit'] = $validated['unit'] ?? 'قطعة';
         $validated['is_featured'] = $request->has('is_featured');
         $validated['is_special_offer'] = $request->has('is_special_offer');
@@ -176,19 +273,6 @@ class AdminProductController extends Controller
         $validated['attributes'] = $attributes;
         unset($validated['weight']);
 
-        if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('products', 'public');
-        }
-
-        // حفظ الصور المتعددة
-        if ($request->hasFile('images')) {
-            $images = [];
-            foreach ($request->file('images') as $file) {
-                $images[] = $file->store('products', 'public');
-            }
-            $validated['images'] = $images;
-        }
-
         $product->update($validated);
 
         return redirect()->route('admin.products.index')->with('success', 'تم تحديث المنتج بنجاح');
@@ -196,9 +280,34 @@ class AdminProductController extends Controller
 
     public function destroy(Product $product)
     {
-        $product->delete();
+        try {
+            // 🗑️ حذف جميع صور المنتج قبل حذفه من قاعدة البيانات
+            
+            // 1. حذف الصورة الرئيسية
+            if ($product->image) {
+                $this->imageUploadService->delete($product->image);
+            }
+            
+            // 2. حذف الصور المتعددة
+            if (is_array($product->images) && !empty($product->images)) {
+                $this->imageUploadService->deleteMultiple($product->images);
+            }
+            
+            // 3. حذف مجلد المنتج بالكامل (إذا كان موجودًا)
+            $productFolder = 'products/' . $product->slug;
+            $this->imageUploadService->deleteDirectory($productFolder);
+            
+            // 4. حذف المنتج من قاعدة البيانات
+            $product->delete();
 
-        return redirect()->route('admin.products.index')->with('success', __('messages.admin.product_deleted'));
+            return redirect()->route('admin.products.index')
+                ->with('success', __('messages.admin.product_deleted'));
+                
+        } catch (\Exception $e) {
+            \Log::error('Product deletion error: ' . $e->getMessage());
+            return redirect()->route('admin.products.index')
+                ->with('error', 'حدث خطأ أثناء حذف المنتج. يرجى المحاولة مرة أخرى.');
+        }
     }
 
     public function bulkImport(Request $request)
